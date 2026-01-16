@@ -1,4 +1,4 @@
-., [16.01.2026 17:13]
+., [16.01.2026 17:25]
 import os
 import csv
 from telegram import (
@@ -18,10 +18,12 @@ from telegram.ext import (
 
 # ================== ENV ==================
 TOKEN = os.getenv("BOT_TOKEN")
-ADMIN_ID = int(os.getenv("ADMIN_ID"))
+ADMIN_ID_RAW = os.getenv("ADMIN_ID")
 
-YES = "✅ Да"
-NO = "❌ Нет"
+if not TOKEN:
+    raise RuntimeError("BOT_TOKEN not set")
+
+ADMIN_ID = int(ADMIN_ID_RAW) if ADMIN_ID_RAW else None
 
 # ================== DATA ==================
 BRANCHES = {
@@ -56,22 +58,21 @@ POSITIONS = [
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     await update.message.reply_text(
-        "👋 Привет! Это CHALBAR | Вакансии\n"
-        "Расскажи, пожалуйста, немного о себе:\n\n"
-        "🤗 Как тебя зовут?"
+        "👋 Привет! Это CHALBAR | Вакансии\n\n"
+        "Как тебя зовут?",
+        reply_markup=ReplyKeyboardRemove()
     )
     return NAME
 
-# ================== FLOW ==================
+
 async def get_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["name"] = update.message.text.strip()
+    context.user_data["name"] = update.message.text
     await update.message.reply_text("🎂 Сколько тебе лет?")
     return AGE
 
 
 async def get_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["age"] = update.message.text.strip()
-
+    context.user_data["age"] = update.message.text
     keyboard = [[KeyboardButton("📱 Отправить номер", request_contact=True)]]
     await update.message.reply_text(
         "😉 Оставь свой номер. Мы ведь не хотим тебя потерять",
@@ -84,7 +85,7 @@ async def get_contacts(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.contact:
         context.user_data["contacts"] = update.message.contact.phone_number
     else:
-        context.user_data["contacts"] = update.message.text.strip()
+        context.user_data["contacts"] = update.message.text
 
     keyboard = [[p] for p in POSITIONS]
     await update.message.reply_text(
@@ -95,7 +96,7 @@ async def get_contacts(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def get_position(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["position"] = update.message.text.strip()
+    context.user_data["position"] = update.message.text
     await update.message.reply_text(
         "😎 Расскажи про свой опыт работы",
         reply_markup=ReplyKeyboardRemove()
@@ -104,7 +105,7 @@ async def get_position(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def get_experience(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["experience"] = update.message.text.strip()
+    context.user_data["experience"] = update.message.text
     await update.message.reply_text(
         "🤔 Учишься ли ты? Если да, то как: очно / заочно"
     )
@@ -112,8 +113,7 @@ async def get_experience(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def get_study(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["study"] = update.message.text.strip()
-
+    context.user_data["study"] = update.message.text
     keyboard = [[b] for b in BRANCHES.keys()]
     await update.message.reply_text(
         "📍 В каком филиале тебе будет комфортно работать?",
@@ -123,7 +123,7 @@ async def get_study(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def get_branch(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["branch"] = update.message.text.strip()
+    context.user_data["branch"] = update.message.text
 
     text = (
         "📋 Проверь анкету:\n\n"
@@ -137,27 +137,31 @@ async def get_branch(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Отправляем?"
     )
 
-    keyboard = [[YES, NO]]
+    keyboard = [["Да", "Нет"]]
     await update.message.reply_text(
         text,
-        reply_markup=ReplyKeyboardMarkup(
-            keyboard,
-            resize_keyboard=True,
-
-., [16.01.2026 17:13]
-one_time_keyboard=True
-        )
+        reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     )
     return CONFIRM
 
-# ================== CONFIRM ==================
+., [16.01.2026 17:25]
 async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text.strip()
+    answer = update.message.text.strip().lower()
 
-    if text == YES:
-        branch = context.user_data["branch"]
-        filename = BRANCHES[branch]
+    if answer == "нет":
+        await update.message.reply_text(
+            "❌ Анкета отменена. Напиши /start чтобы начать заново.",
+            reply_markup=ReplyKeyboardRemove()
+        )
+        return ConversationHandler.END
 
+    if answer != "да":
+        return CONFIRM
+
+    branch = context.user_data["branch"]
+    filename = BRANCHES.get(branch)
+
+    if filename:
         with open(filename, "a", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow([
@@ -170,6 +174,7 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 branch,
             ])
 
+    if ADMIN_ID:
         hr_text = (
             f"📋 Новая анкета ({branch})\n\n"
             f"👤 Имя: {context.user_data['name']}\n"
@@ -179,29 +184,15 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"😎 Опыт: {context.user_data['experience']}\n"
             f"🎓 Учёба: {context.user_data['study']}"
         )
-
         await context.bot.send_message(chat_id=ADMIN_ID, text=hr_text)
 
-        await update.message.reply_text(
-            "✅ Анкета отправлена! HR свяжется с тобой 👌",
-            reply_markup=ReplyKeyboardRemove()
-        )
-        context.user_data.clear()
-        return ConversationHandler.END
+    await update.message.reply_text(
+        "✅ Анкета отправлена! HR свяжется с тобой 👌",
+        reply_markup=ReplyKeyboardRemove()
+    )
+    return ConversationHandler.END
 
-    elif text == NO:
-        await update.message.reply_text(
-            "❌ Анкета отменена. Напиши /start чтобы начать заново.",
-            reply_markup=ReplyKeyboardRemove()
-        )
-        context.user_data.clear()
-        return ConversationHandler.END
 
-    else:
-        await update.message.reply_text("Пожалуйста, выбери вариант кнопкой 👇")
-        return CONFIRM
-
-# ================== MAIN ==================
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
@@ -220,7 +211,7 @@ def main():
             BRANCH: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_branch)],
             CONFIRM: [MessageHandler(filters.TEXT & ~filters.COMMAND, confirm)],
         },
-        fallbacks=[CommandHandler("cancel", cancel)],
+        fallbacks=[CommandHandler("cancel", start)],
     )
 
     app.add_handler(conv)
