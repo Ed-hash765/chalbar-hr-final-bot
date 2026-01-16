@@ -1,4 +1,3 @@
-., [16.01.2026 17:25]
 import os
 import csv
 from telegram import (
@@ -144,7 +143,6 @@ async def get_branch(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     return CONFIRM
 
-., [16.01.2026 17:25]
 async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     answer = update.message.text.strip().lower()
 
