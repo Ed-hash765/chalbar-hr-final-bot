@@ -17,12 +17,14 @@ from telegram.ext import (
 
 # ================== ENV ==================
 TOKEN = os.getenv("BOT_TOKEN")
-ADMIN_ID_RAW = os.getenv("ADMIN_ID")
+ADMIN_ID = int(os.getenv("ADMIN_ID"))
 
-if not TOKEN:
-    raise RuntimeError("BOT_TOKEN not set")
-
-ADMIN_ID = int(ADMIN_ID_RAW) if ADMIN_ID_RAW else None
+# ================== HELPERS ==================
+def safe_text(text: str, limit: int = 4000) -> str:
+    """Telegram-safe message length"""
+    if not text:
+        return ""
+    return text[:limit]
 
 # ================== DATA ==================
 BRANCHES = {
@@ -57,21 +59,22 @@ POSITIONS = [
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     await update.message.reply_text(
-        "👋 Привет! Это CHALBAR | Вакансии\n\n"
-        "Как тебя зовут?",
-        reply_markup=ReplyKeyboardRemove()
+        "👋 Привет! Это *CHALBAR | Вакансии*\n\n"
+        "🤗 Как тебя зовут?",
+        parse_mode="Markdown"
     )
     return NAME
 
-
+# ================== FLOW ==================
 async def get_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["name"] = update.message.text
+    context.user_data["name"] = update.message.text.strip()
     await update.message.reply_text("🎂 Сколько тебе лет?")
     return AGE
 
 
 async def get_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["age"] = update.message.text
+    context.user_data["age"] = update.message.text.strip()
+
     keyboard = [[KeyboardButton("📱 Отправить номер", request_contact=True)]]
     await update.message.reply_text(
         "😉 Оставь свой номер. Мы ведь не хотим тебя потерять",
@@ -84,7 +87,7 @@ async def get_contacts(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.contact:
         context.user_data["contacts"] = update.message.contact.phone_number
     else:
-        context.user_data["contacts"] = update.message.text
+        context.user_data["contacts"] = update.message.text.strip()
 
     keyboard = [[p] for p in POSITIONS]
     await update.message.reply_text(
@@ -95,7 +98,7 @@ async def get_contacts(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def get_position(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["position"] = update.message.text
+    context.user_data["position"] = update.message.text.strip()
     await update.message.reply_text(
         "😎 Расскажи про свой опыт работы",
         reply_markup=ReplyKeyboardRemove()
@@ -104,15 +107,16 @@ async def get_position(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def get_experience(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["experience"] = update.message.text
+    context.user_data["experience"] = update.message.text.strip()
     await update.message.reply_text(
-        "🤔 Учишься ли ты? Если да, то как: очно / заочно"
+        "🎓 Учишься ли ты? Если да — очно или заочно?"
     )
     return STUDY
 
 
 async def get_study(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["study"] = update.message.text
+    context.user_data["study"] = update.message.text.strip()
+
     keyboard = [[b] for b in BRANCHES.keys()]
     await update.message.reply_text(
         "📍 В каком филиале тебе будет комфортно работать?",
@@ -122,43 +126,44 @@ async def get_study(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def get_branch(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["branch"] = update.message.text
+    branch = update.message.text.strip()
+    context.user_data["branch"] = branch
 
     text = (
-        "📋 Проверь анкету:\n\n"
+        "📋 *Проверь анкету:*\n\n"
         f"👤 Имя: {context.user_data['name']}\n"
         f"🎂 Возраст: {context.user_data['age']}\n"
         f"📞 Контакты: {context.user_data['contacts']}\n"
         f"💼 Должность: {context.user_data['position']}\n"
         f"😎 Опыт: {context.user_data['experience']}\n"
         f"🎓 Учёба: {context.user_data['study']}\n"
-        f"📍 Филиал: {context.user_data['branch']}\n\n"
+        f"📍 Филиал: {branch}\n\n"
         "Отправляем?"
     )
 
     keyboard = [["Да", "Нет"]]
     await update.message.reply_text(
-        text,
-        reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        safe_text(text),
+        reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True),
+        parse_mode="Markdown"
     )
     return CONFIRM
 
+# ================== CONFIRM ==================
 async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    answer = update.message.text.strip().lower()
+    answer = update.message.text.lower().strip()
 
-    if answer == "нет":
+    if answer != "да":
         await update.message.reply_text(
             "❌ Анкета отменена. Напиши /start чтобы начать заново.",
             reply_markup=ReplyKeyboardRemove()
         )
         return ConversationHandler.END
 
-    if answer != "да":
-        return CONFIRM
-
     branch = context.user_data["branch"]
     filename = BRANCHES.get(branch)
 
+    # ---- SAVE TO CSV ----
     if filename:
         with open(filename, "a", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
@@ -172,17 +177,22 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 branch,
             ])
 
-    if ADMIN_ID:
-        hr_text = (
-            f"📋 Новая анкета ({branch})\n\n"
-            f"👤 Имя: {context.user_data['name']}\n"
-            f"🎂 Возраст: {context.user_data['age']}\n"
-            f"📞 Контакты: {context.user_data['contacts']}\n"
-            f"💼 Должность: {context.user_data['position']}\n"
-            f"😎 Опыт: {context.user_data['experience']}\n"
-            f"🎓 Учёба: {context.user_data['study']}"
-        )
-        await context.bot.send_message(chat_id=ADMIN_ID, text=hr_text)
+    # ---- SEND TO HR ----
+    hr_text = (
+        f"📋 *Новая анкета ({branch})*\n\n"
+        f"👤 Имя: {context.user_data['name']}\n"
+        f"🎂 Возраст: {context.user_data['age']}\n"
+        f"📞 Контакты: {context.user_data['contacts']}\n"
+        f"💼 Должность: {context.user_data['position']}\n"
+        f"😎 Опыт: {context.user_data['experience']}\n"
+        f"🎓 Учёба: {context.user_data['study']}"
+    )
+
+    await context.bot.send_message(
+        chat_id=ADMIN_ID,
+        text=safe_text(hr_text),
+        parse_mode="Markdown"
+    )
 
     await update.message.reply_text(
         "✅ Анкета отправлена! HR свяжется с тобой 👌",
@@ -191,6 +201,14 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "❌ Отменено. Напиши /start",
+        reply_markup=ReplyKeyboardRemove()
+    )
+    return ConversationHandler.END
+
+# ================== MAIN ==================
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
@@ -209,12 +227,13 @@ def main():
             BRANCH: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_branch)],
             CONFIRM: [MessageHandler(filters.TEXT & ~filters.COMMAND, confirm)],
         },
-        fallbacks=[CommandHandler("cancel", start)],
+        fallbacks=[CommandHandler("cancel", cancel)],
+        allow_reentry=True,
     )
 
     app.add_handler(conv)
     print("🤖 CHALBAR HR BOT запущен")
-    app.run_polling()
+    app.run_polling(drop_pending_updates=True)
 
 
 if __name__ == "__main__":
