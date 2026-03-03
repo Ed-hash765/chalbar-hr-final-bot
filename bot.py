@@ -75,17 +75,38 @@ async def get_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def get_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["age"] = update.message.text.strip()
 
-    keyboard = [[KeyboardButton("📱 Отправить номер", request_contact=True)]]
+    keyboard = [
+        [KeyboardButton("📱 Отправить номер", request_contact=True)],
+        [KeyboardButton("📨 Оставить Telegram")]
+    ]
+
     await update.message.reply_text(
-        "😉 Оставь свой номер. Мы ведь не хотим тебя потерять",
+        "😉 Оставь свой номер или Telegram. Мы ведь не хотим тебя потерять",
         reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     )
     return CONTACTS
 
 
 async def get_contacts(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    # Если отправили номер через кнопку
     if update.message.contact:
         context.user_data["contacts"] = update.message.contact.phone_number
+
+    # Если нажали кнопку Telegram
+    elif update.message.text == "📨 Оставить Telegram":
+        username = update.effective_user.username
+
+        if username:
+            context.user_data["contacts"] = f"@{username}"
+        else:
+            await update.message.reply_text(
+                "У тебя не указан username 😔\n"
+                "Напиши его вручную (пример: @example)"
+            )
+            return CONTACTS
+
+    # Если просто написали текст вручную
     else:
         context.user_data["contacts"] = update.message.text.strip()
 
@@ -94,6 +115,7 @@ async def get_contacts(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "😌 Какая должность тебе интересна?",
         reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     )
+
     return POSITION
 
 
