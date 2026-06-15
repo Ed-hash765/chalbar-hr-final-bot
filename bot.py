@@ -51,9 +51,9 @@ POSITIONS = [
     POSITION,
     EXPERIENCE,
     STUDY,
+    PLACE,
     BRANCH,
     CONFIRM,
-    PLACE,
 ) = range(9)
 
 # ================== START ==================
@@ -132,14 +132,12 @@ async def get_position(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def get_experience(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["experience"] = update.message.text.strip()
+
     await update.message.reply_text(
         "🎓 Учишься ли ты? Если да — очно или заочно?"
     )
+
     return STUDY
-
-
-async def get_study(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["study"] = update.message.text.strip()
 
 
 async def get_study(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -148,6 +146,7 @@ async def get_study(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🏠 Где территориально проживаешь?"
     )
+
     return PLACE
 
 
@@ -155,6 +154,7 @@ async def get_place(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["place"] = update.message.text.strip()
 
     keyboard = [[b] for b in BRANCHES.keys()]
+
     await update.message.reply_text(
         "📍 В каком филиале тебе будет комфортно работать?",
         reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
@@ -168,16 +168,17 @@ async def get_branch(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["branch"] = branch
 
     text = (
-        "📋 *Проверь анкету:*\n\n"
-        f"👤 Имя: {context.user_data['name']}\n"
-        f"🎂 Возраст: {context.user_data['age']}\n"
-        f"📞 Контакты: {context.user_data['contacts']}\n"
-        f"💼 Должность: {context.user_data['position']}\n"
-        f"😎 Опыт: {context.user_data['experience']}\n"
-        f"🎓 Учёба: {context.user_data['study']}\n"
-        f"📍 Филиал: {branch}\n\n"
-        "Отправляем?"
-    )
+    "📋 *Проверь анкету:*\n\n"
+    f"👤 Имя: {context.user_data['name']}\n"
+    f"🎂 Возраст: {context.user_data['age']}\n"
+    f"📞 Контакты: {context.user_data['contacts']}\n"
+    f"💼 Должность: {context.user_data['position']}\n"
+    f"😎 Опыт: {context.user_data['experience']}\n"
+    f"🎓 Учёба: {context.user_data['study']}\n"
+    f"🏠 Проживание: {context.user_data['place']}\n"
+    f"📍 Филиал: {branch}\n\n"
+    "Отправляем?"
+)
 
     keyboard = [["Да", "Нет"]]
     await update.message.reply_text(
@@ -206,25 +207,27 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
         with open(filename, "a", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow([
-                context.user_data["name"],
-                context.user_data["age"],
-                context.user_data["contacts"],
-                context.user_data["position"],
-                context.user_data["experience"],
-                context.user_data["study"],
-                branch,
-            ])
+    context.user_data["name"],
+    context.user_data["age"],
+    context.user_data["contacts"],
+    context.user_data["position"],
+    context.user_data["experience"],
+    context.user_data["study"],
+    context.user_data["place"],
+    branch,
+])
 
     # ---- SEND TO HR ----
     hr_text = (
-        f"📋 *Новая анкета ({branch})*\n\n"
-        f"👤 Имя: {context.user_data['name']}\n"
-        f"🎂 Возраст: {context.user_data['age']}\n"
-        f"📞 Контакты: {context.user_data['contacts']}\n"
-        f"💼 Должность: {context.user_data['position']}\n"
-        f"😎 Опыт: {context.user_data['experience']}\n"
-        f"🎓 Учёба: {context.user_data['study']}"
-    )
+    f"📋 *Новая анкета ({branch})*\n\n"
+    f"👤 Имя: {context.user_data['name']}\n"
+    f"🎂 Возраст: {context.user_data['age']}\n"
+    f"📞 Контакты: {context.user_data['contacts']}\n"
+    f"💼 Должность: {context.user_data['position']}\n"
+    f"😎 Опыт: {context.user_data['experience']}\n"
+    f"🎓 Учёба: {context.user_data['study']}\n"
+    f"🏠 Проживание: {context.user_data['place']}"
+)
 
     await context.bot.send_message(
         chat_id=ADMIN_ID,
@@ -252,18 +255,20 @@ def main():
 
     conv = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
-        states={
-            NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_name)],
-            AGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_age)],
-            CONTACTS: [
-                MessageHandler(filters.CONTACT, get_contacts),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, get_contacts),
-            ],
-            POSITION: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_position)],
-            EXPERIENCE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_experience)],
-            STUDY: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_study)],
-            BRANCH: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_branch)],
-            CONFIRM: [MessageHandler(filters.TEXT & ~filters.COMMAND, confirm)],
+       states={
+    NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_name)],
+    AGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_age)],
+    CONTACTS: [
+        MessageHandler(filters.CONTACT, get_contacts),
+        MessageHandler(filters.TEXT & ~filters.COMMAND, get_contacts),
+    ],
+    POSITION: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_position)],
+    EXPERIENCE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_experience)],
+    STUDY: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_study)],
+    PLACE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_place)],
+    BRANCH: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_branch)],
+    CONFIRM: [MessageHandler(filters.TEXT & ~filters.COMMAND, confirm)],
+},
         },
         fallbacks=[CommandHandler("cancel", cancel)],
         allow_reentry=True,
