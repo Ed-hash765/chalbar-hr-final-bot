@@ -142,23 +142,24 @@ async def get_study(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["study"] = update.message.text.strip()
 
 
-    async def get_experience(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["experience"] = update.message.text.strip()
+async def get_study(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["study"] = update.message.text.strip()
+
     await update.message.reply_text(
-        "Где территориально проживаешь?"
+        "🏠 Где территориально проживаешь?"
     )
     return PLACE
 
 
-async def get_study(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_place(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["place"] = update.message.text.strip()
-
 
     keyboard = [[b] for b in BRANCHES.keys()]
     await update.message.reply_text(
         "📍 В каком филиале тебе будет комфортно работать?",
         reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     )
+
     return BRANCH
 
 
