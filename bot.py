@@ -29,7 +29,6 @@ def safe_text(text: str, limit: int = 4000) -> str:
 # ================== DATA ==================
 BRANCHES = {
     "CHALBAR ЗАГС": "chalbar_zags.csv",
-    "CHALBAR СИПА": "chalbar_sipa.csv",
     "CHALBAR ЦЕНТР": "chalbar_center.csv",
 }
 
@@ -54,7 +53,8 @@ POSITIONS = [
     STUDY,
     BRANCH,
     CONFIRM,
-) = range(8)
+    PLACE,
+) = range(9)
 
 # ================== START ==================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -71,6 +71,7 @@ async def get_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["name"] = update.message.text.strip()
     await update.message.reply_text("🎂 Сколько тебе лет?")
     return AGE
+
 
 
 async def get_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -139,6 +140,19 @@ async def get_experience(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def get_study(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["study"] = update.message.text.strip()
+
+
+    async def get_experience(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["experience"] = update.message.text.strip()
+    await update.message.reply_text(
+        "Где территориально проживаешь?"
+    )
+    return PLACE
+
+
+async def get_study(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["place"] = update.message.text.strip()
+
 
     keyboard = [[b] for b in BRANCHES.keys()]
     await update.message.reply_text(
