@@ -252,7 +252,6 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ================== MAIN ==================
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
-
     conv = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
        states={
@@ -269,7 +268,6 @@ def main():
     BRANCH: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_branch)],
     CONFIRM: [MessageHandler(filters.TEXT & ~filters.COMMAND, confirm)],
 },
-        },
         fallbacks=[CommandHandler("cancel", cancel)],
         allow_reentry=True,
     )
